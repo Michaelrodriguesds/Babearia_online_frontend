@@ -1,0 +1,16 @@
+# Configuração para publicar no Netlify (grátis)
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Todas as rotas abrem o app (necessário para links como /b/barbearia-do-ze)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# O arquivo do service worker nunca pode ficar em cache antigo
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
