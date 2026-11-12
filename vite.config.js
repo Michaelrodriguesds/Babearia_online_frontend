@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       // Transforma o site em app instalável (Android e iPhone), com notificações
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: false, // o registro é feito em src/registrarApp.js, com tratamento de erro
         includeAssets: ['icons/*.png', 'push-sw.js'],
         manifest: {
           name: nome,

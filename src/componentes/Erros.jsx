@@ -4,17 +4,25 @@ import { api } from '../api';
 
 const enviados = new Set();
 
+// Robôs de busca, leitura e prévia de links não são clientes: os erros deles não contam
+const ROBO = /Googlebot|bingbot|YandexBot|DuckDuckBot|Baiduspider|Google-Read-Aloud|Google-InspectionTool|AdsBot|Mediapartners|Lighthouse|HeadlessChrome|facebookexternalhit|Prerender|(^|[\s(;/])(bot|crawler|spider)([\s);/]|$)/i;
+// Navegador que recusa o modo app (service worker) não é defeito do app
+const ERRO_DO_NAVEGADOR = /serviceWorker|service worker|registerSW|sw\.js/i;
+
 // Manda o erro para o /admin (no máximo 5 por visita, sem repetir o mesmo)
 export function relatarErroAutomatico(erro) {
   try {
+    if (ROBO.test(navigator.userAgent || '')) return;
     const mensagem = String(erro?.message || erro || 'Erro desconhecido').slice(0, 500);
+    const pilha = String(erro?.stack || '');
+    if (ERRO_DO_NAVEGADOR.test(mensagem) || ERRO_DO_NAVEGADOR.test(pilha)) return;
     if (enviados.has(mensagem) || enviados.size >= 5) return;
     // erros de extensões do navegador e de rede não são bugs do app
     if (/ResizeObserver|Script error|chrome-extension|Failed to fetch|Load failed|NetworkError/i.test(mensagem)) return;
     enviados.add(mensagem);
     api('/relatos/automatico', {
       metodo: 'POST',
-      corpo: { mensagem, pilha: String(erro?.stack || '').slice(0, 4000), pagina: window.location.pathname },
+      corpo: { mensagem, pilha: pilha.slice(0, 4000), pagina: window.location.pathname },
     }).catch(() => {});
   } catch {
     /* nunca deixa o próprio relato quebrar o app */

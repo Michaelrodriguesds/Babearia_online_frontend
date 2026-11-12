@@ -114,7 +114,9 @@ export default function Agenda() {
               <div>
                 <div className="linha-entre">
                   <b>{a.tipo === 'bloqueio' ? a.motivo || 'Bloqueado' : a.clienteNome}</b>
-                  <span className={`chip chip-${a.status}`}>{STATUS_TEXTO[a.status]}</span>
+                  <span className={`chip chip-${a.status}`}>
+                    {a.status === 'pendente' && a.pagamento?.informadoEm ? 'Cliente diz que pagou' : STATUS_TEXTO[a.status]}
+                  </span>
                 </div>
                 {a.tipo === 'cliente' && (
                   <div className="suave pequeno">
@@ -128,6 +130,12 @@ export default function Agenda() {
                     <Botao className="btn-primario btn-pequeno" carregando={acao === a._id}
                       onClick={() => executar(a._id, `/painel/agendamentos/${a._id}/confirmar`, 'POST', 'Pix confirmado. O cliente foi avisado.', `Confirmar que o Pix de ${moeda(a.valorCobrado)} de ${a.clienteNome} caiu na sua conta?`)}>
                       Confirmar Pix
+                    </Botao>
+                  )}
+                  {a.status === 'expirado' && a.tipo === 'cliente' && a.valorCobrado > 0 && (
+                    <Botao className="btn-contorno btn-pequeno" carregando={acao === a._id}
+                      onClick={() => executar(a._id, `/painel/agendamentos/${a._id}/confirmar`, 'POST', 'Pix confirmado. Se o horário já tinha sido ocupado, ele aparece como Conflito.', `O prazo dessa reserva acabou. Confirmar mesmo assim que o Pix de ${moeda(a.valorCobrado)} de ${a.clienteNome} caiu na sua conta?`)}>
+                      Pix caiu depois do prazo
                     </Botao>
                   )}
                   {a.tipo === 'cliente' && a.clienteWhatsapp && (

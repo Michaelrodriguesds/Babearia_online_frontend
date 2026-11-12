@@ -5,9 +5,11 @@ import App from './App';
 import { ToastProvider, AvisoServidor } from './componentes/ui';
 import AvisoSistema from './componentes/AvisoSistema';
 import { LimiteDeErro, ativarCapturaDeErros } from './componentes/Erros';
+import { registrarApp } from './registrarApp';
 import './styles.css';
 
 ativarCapturaDeErros(); // erros do app chegam sozinhos no seu /admin
+registrarApp(); // modo app (instalar e notificações)
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

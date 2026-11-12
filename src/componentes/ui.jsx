@@ -39,17 +39,25 @@ export function Campo({ rotulo, ajuda, erro, children }) {
 
 export function Modal({ titulo, aberto, aoFechar, children }) {
   const ref = useRef(null);
+  // Guarda a função de fechar mais recente sem refazer o efeito abaixo.
+  // (Antes, cada atualização da tela de trás, como o contador do Pix, refazia o
+  // efeito e roubava o foco do campo de texto: no celular o teclado fechava.)
+  const fecharRef = useRef(aoFechar);
+  fecharRef.current = aoFechar;
+
   useEffect(() => {
     if (!aberto) return undefined;
-    const tecla = (e) => e.key === 'Escape' && aoFechar();
+    const tecla = (e) => e.key === 'Escape' && fecharRef.current();
     document.addEventListener('keydown', tecla);
-    ref.current?.querySelector('input, select, textarea, button')?.focus();
+    // Foca a própria janela (não um campo), só uma vez ao abrir: no celular isso
+    // não abre o teclado sozinho, e o leitor de tela anuncia a janela.
+    ref.current?.focus({ preventScroll: true });
     return () => document.removeEventListener('keydown', tecla);
-  }, [aberto, aoFechar]);
+  }, [aberto]);
   if (!aberto) return null;
   return (
     <div className="fundo-modal" onClick={(e) => e.target === e.currentTarget && aoFechar()}>
-      <div className="modal pilha" role="dialog" aria-modal="true" aria-label={titulo} ref={ref}>
+      <div className="modal pilha" role="dialog" aria-modal="true" aria-label={titulo} ref={ref} tabIndex={-1} style={{ outline: 'none' }}>
         <div className="linha-entre">
           <h2>{titulo}</h2>
           <button className="btn btn-texto" onClick={aoFechar}>Fechar</button>

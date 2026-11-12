@@ -46,6 +46,17 @@ export default function Barbearias() {
       corpo = { dias: n, observacao };
     }
     if (tipo === 'bloquear' && !window.confirm(`Bloquear ${b.nome} agora? A agenda online e o painel param na hora.`)) return;
+    if (tipo === 'excluir') {
+      const digitado = window.prompt(
+        `ATENÇÃO: isso apaga para sempre a barbearia ${b.nome}, com agenda, serviços, clientes e o login do barbeiro. Não tem como desfazer.\n\nPara confirmar, digite o nome da barbearia:`
+      );
+      if (digitado === null) return;
+      if (digitado.trim().toLocaleLowerCase('pt-BR') !== b.nome.trim().toLocaleLowerCase('pt-BR')) {
+        toast('O nome digitado não confere. Nada foi apagado.', 'erro');
+        return;
+      }
+      corpo = { confirmacao: digitado };
+    }
     if (tipo === 'resetar-senha') {
       const novaSenha = window.prompt(`Nova senha para ${b.dono?.email || b.nome} (mínimo 8 caracteres):`);
       if (!novaSenha) return;
@@ -55,7 +66,7 @@ export default function Barbearias() {
     setAcao(b._id);
     try {
       await api(`/admin/barbearias/${b._id}/${tipo}`, { metodo: 'POST', corpo });
-      toast(tipo === 'renovar' ? 'Plano renovado.' : tipo === 'bloquear' ? 'Barbearia bloqueada.' : 'Senha alterada. Mande para o barbeiro.');
+      toast({ renovar: 'Plano renovado.', bloquear: 'Barbearia bloqueada.', excluir: `${b.nome} foi excluída.`, 'resetar-senha': 'Senha alterada. Mande para o barbeiro.' }[tipo]);
       carregar();
     } catch (e) {
       toast(e.message, 'erro');
@@ -99,6 +110,7 @@ export default function Barbearias() {
               <a className="btn btn-zap btn-pequeno" target="_blank" rel="noreferrer" href={linkWhatsapp(b.whatsapp, `Olá, ${b.dono?.nome || ''}! Aqui é do suporte da agenda da ${b.nome}.`)}>{mascaraTelefone(b.whatsapp)}</a>
               <button className="btn btn-contorno btn-pequeno" disabled={acao === b._id} onClick={() => executar(b, 'resetar-senha')}>Nova senha</button>
               {b.licenca.ativa && <button className="btn btn-perigo btn-pequeno" disabled={acao === b._id} onClick={() => executar(b, 'bloquear')}>Bloquear</button>}
+              <button className="btn btn-texto btn-pequeno" style={{ color: 'var(--erro-texto)' }} disabled={acao === b._id} onClick={() => executar(b, 'excluir')}>Excluir</button>
             </div>
           </article>
         ))}

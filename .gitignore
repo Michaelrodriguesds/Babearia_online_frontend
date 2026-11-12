@@ -4,4 +4,3 @@ dev-dist/
 .env
 *.log
 *.env
-*.env
