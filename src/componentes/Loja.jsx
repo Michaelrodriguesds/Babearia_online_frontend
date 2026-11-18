@@ -1,6 +1,6 @@
 // Dados públicos da barbearia + cabeçalho com a cor dela
 import { useEffect, useState } from 'react';
-import { api, acordarServidor } from '../api';
+import { api, acordarServidor, ErroApi } from '../api';
 import { corTextoSobre } from '../utils';
 
 export function useLoja(slug) {
@@ -13,7 +13,15 @@ export function useLoja(slug) {
     acordarServidor();
     setErro(null);
     api(`/publico/${encodeURIComponent(slug)}`, { autenticado: false })
-      .then((d) => ativo && setLoja(d))
+      .then((d) => {
+        if (!ativo) return;
+        // Só mostra a agenda se os dados vieram completos
+        if (!d || !d.regras || !Array.isArray(d.servicos) || !Array.isArray(d.horarios)) {
+          setErro(new ErroApi(0, 'Não foi possível abrir a agenda. Tente de novo.'));
+          return;
+        }
+        setLoja({ ...d, folgas: Array.isArray(d.folgas) ? d.folgas : [] });
+      })
       .catch((e) => ativo && setErro(e));
     return () => { ativo = false; };
   }, [slug, tentativa]);

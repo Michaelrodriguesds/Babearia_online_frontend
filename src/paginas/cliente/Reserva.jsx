@@ -102,6 +102,9 @@ export default function Reserva() {
     </div>
   );
   const zapLoja = loja?.whatsapp;
+  // Sinal: Pix é só uma parte, o resto é pago na barbearia (conta em centavos)
+  const parcial = ag.valorTotal > 0 && ag.valorCobrado > 0 && ag.valorCobrado < ag.valorTotal;
+  const restante = parcial ? (Math.round(ag.valorTotal * 100) - Math.round(ag.valorCobrado * 100)) / 100 : 0;
 
   return (
     <div style={estiloDaLoja(loja)}>
@@ -134,8 +137,13 @@ export default function Reserva() {
             </div>
             <section className="secao pilha centro">
               <div>
-                <div className="suave pequeno">Valor</div>
+                <div className="suave pequeno">{parcial ? 'Valor do sinal' : 'Valor'}</div>
                 <div className="data-grande">{moeda(ag.valorCobrado)}</div>
+                {parcial && (
+                  <div className="suave pequeno">
+                    Total {moeda(ag.valorTotal)} · o restante ({moeda(restante)}) você paga na barbearia
+                  </div>
+                )}
               </div>
               {contagem.resta > 0 ? (
                 <div>

@@ -1,13 +1,17 @@
-// Página pública: o cliente escolhe serviço, dia e horário e reserva
+// Página pública: o cliente escolhe um ou mais serviços, dia e horário e reserva
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../../api';
 import { useLoja, estiloDaLoja, CabecalhoLoja, LojaIndisponivel } from '../../componentes/Loja';
 import { Aviso, Botao, Campo, Carregando, useToast } from '../../componentes/ui';
 import { LinkRelatar } from '../../componentes/Relatar';
+import { calcularCobranca, somarPrecos } from '../../dinheiro';
 import {
   diaDaSemana, diaDoMes, diaSemanaCurto, dataLonga, isoDia, moeda, somarDias, mascaraTelefone, telefoneValido, hora,
 } from '../../utils';
+
+const MAX_SERVICOS = 10;
+const MAX_MINUTOS = 480;
 
 function lerJSON(chave) {
   try { return JSON.parse(localStorage.getItem(chave)); } catch { return null; }
@@ -19,9 +23,10 @@ export default function Agendar() {
   const toast = useToast();
   const { loja, erro: erroLoja, recarregar } = useLoja(slug);
 
-  const [servico, setServico] = useState(null);
+  const [escolhidos, setEscolhidos] = useState([]); // ids, na ordem em que o cliente tocou
   const [dia, setDia] = useState(null);
   const [horarios, setHorarios] = useState(null);
+  const [valoresServidor, setValoresServidor] = useState(null); // { chave, precoTotal, valorPix }
   const [erroHorarios, setErroHorarios] = useState(null);
   const [horario, setHorario] = useState(null);
   const [etapa, setEtapa] = useState('escolher');
@@ -52,23 +57,61 @@ export default function Agendar() {
     });
   }, [loja]);
 
-  // Ao escolher o serviço, já seleciona o primeiro dia aberto
-  function escolherServico(s) {
-    setServico(s);
+  // Soma dos serviços escolhidos (em centavos, igual ao servidor)
+  const escolha = useMemo(() => {
+    if (!loja || !escolhidos.length) return null;
+    const lista = escolhidos.map((id) => loja.servicos.find((s) => s._id === id)).filter(Boolean);
+    if (!lista.length) return null;
+    const preco = somarPrecos(lista.map((s) => s.preco));
+    return {
+      lista,
+      ids: lista.map((s) => s._id),
+      chave: lista.map((s) => s._id).join(','),
+      preco,
+      duracaoMinutos: lista.reduce((t, s) => t + s.duracaoMinutos, 0),
+      valorPix: calcularCobranca(loja.regras, preco),
+    };
+  }, [loja, escolhidos]);
+  const chave = escolha?.chave || '';
+
+  // Valor que vale é o do servidor (quando já chegou para esta mesma escolha)
+  const doServidor = valoresServidor && valoresServidor.chave === chave ? valoresServidor : null;
+  const precoTotal = doServidor ? doServidor.precoTotal : escolha?.preco ?? 0;
+  const valorPix = doServidor ? doServidor.valorPix : escolha?.valorPix ?? 0;
+
+  // Toque marca ou desmarca. Ao marcar o primeiro, já escolhe o primeiro dia aberto.
+  function alternarServico(s) {
     setHorario(null);
+    if (escolhidos.includes(s._id)) {
+      setEscolhidos(escolhidos.filter((id) => id !== s._id));
+      return;
+    }
+    if (escolhidos.length >= MAX_SERVICOS) {
+      toast(`Escolha no máximo ${MAX_SERVICOS} serviços por horário.`, 'erro');
+      return;
+    }
+    if ((escolha?.duracaoMinutos || 0) + s.duracaoMinutos > MAX_MINUTOS) {
+      toast('Os serviços escolhidos passariam de 8 horas.', 'erro');
+      return;
+    }
+    setEscolhidos([...escolhidos, s._id]);
     if (!dia) setDia(dias.find((d) => d.aberto)?.iso || null);
   }
 
   useEffect(() => {
-    if (!servico || !dia) return;
+    if (!chave || !dia) return;
     let ativo = true;
     setHorarios(null);
     setErroHorarios(null);
-    api(`/publico/${slug}/disponibilidade?servicoId=${servico._id}&data=${dia}`, { autenticado: false })
-      .then((d) => ativo && setHorarios(d.horarios))
+    api(`/publico/${slug}/disponibilidade?servicoIds=${chave}&data=${dia}`, { autenticado: false })
+      .then((d) => {
+        if (!ativo) return;
+        setHorarios(d.horarios);
+        setValoresServidor({ chave, precoTotal: d.precoTotal, valorPix: d.valorPix });
+      })
       .catch((e) => ativo && setErroHorarios(e.message));
     return () => { ativo = false; };
-  }, [slug, servico, dia, atualizar]);
+  }, [slug, chave, dia, atualizar]);
 
   const grupos = useMemo(() => {
     const g = { Manhã: [], Tarde: [], Noite: [] };
@@ -92,7 +135,7 @@ export default function Agendar() {
       const r = await api(`/publico/${slug}/agendamentos`, {
         metodo: 'POST',
         autenticado: false,
-        corpo: { servicoId: servico._id, inicio: horario.inicio, nome: nome.trim(), whatsapp: whatsapp.replace(/\D/g, '') },
+        corpo: { servicoIds: escolha.ids, inicio: horario.inicio, nome: nome.trim(), whatsapp: whatsapp.replace(/\D/g, '') },
       });
       localStorage.setItem('cliente', JSON.stringify({ nome: nome.trim(), whatsapp }));
       if (r.status === 'pendente') {
@@ -100,10 +143,12 @@ export default function Agendar() {
       }
       navegar(`/b/${slug}/reserva/${r.id}?c=${r.codigo}`, { state: { reserva: r } });
     } catch (e) {
-      if (e.status === 409) {
+      if (e.status === 409 || e.status === 404) {
+        // horário ocupado ou serviço que saiu do ar: volta para escolher de novo
         toast(e.message, 'erro');
         setHorario(null);
         setEtapa('escolher');
+        if (e.status === 404) recarregar();
         setAtualizar((n) => n + 1);
       } else {
         setErroEnvio(e.message);
@@ -117,7 +162,8 @@ export default function Agendar() {
   if (!loja) return (<><CabecalhoLoja loja={null} /><Carregando texto="Abrindo a agenda…" /></>);
 
   const pagaNoLocal = loja.regras.cobranca === 'local';
-  const valorPix = servico?.valorPix ?? 0;
+  const quantos = escolha?.lista.length || 0;
+  const textoQuantos = quantos === 1 ? '1 serviço' : `${quantos} serviços`;
 
   return (
     <div style={estiloDaLoja(loja)}>
@@ -133,23 +179,36 @@ export default function Agendar() {
         {etapa === 'escolher' && (
           <>
             <section className="pilha-p" aria-labelledby="t-servico">
-              <h2 id="t-servico">Qual serviço?</h2>
+              <h2 id="t-servico">Quais serviços?</h2>
+              {loja.servicos.length > 1 && (
+                <p className="suave pequeno" style={{ margin: 0 }}>Pode escolher mais de um. Toque de novo para tirar.</p>
+              )}
               {loja.servicos.length === 0 && <p className="suave">Esta barbearia ainda não cadastrou serviços.</p>}
-              {loja.servicos.map((s) => (
-                <button key={s._id} className="servico" aria-pressed={servico?._id === s._id} onClick={() => escolherServico(s)}>
-                  <div>
-                    <b>{s.nome}</b>
-                    <div className="suave pequeno">{s.duracaoMinutos} min{s.descricao ? ` · ${s.descricao}` : ''}</div>
-                  </div>
-                  <div className="preco">
-                    {moeda(s.preco)}
-                    {s.valorPix > 0 && s.valorPix < s.preco && <div className="suave pequeno">Sinal {moeda(s.valorPix)}</div>}
-                  </div>
-                </button>
-              ))}
+              {loja.servicos.map((s) => {
+                const marcado = escolhidos.includes(s._id);
+                return (
+                  <button key={s._id} className="servico" aria-pressed={marcado} onClick={() => alternarServico(s)}>
+                    <span className="caixa" aria-hidden="true">{marcado ? '✓' : ''}</span>
+                    <div>
+                      <b>{s.nome}</b>
+                      <div className="suave pequeno">{s.duracaoMinutos} min{s.descricao ? ` · ${s.descricao}` : ''}</div>
+                    </div>
+                    <div className="preco">
+                      {moeda(s.preco)}
+                      {s.valorPix > 0 && s.valorPix < s.preco && <div className="suave pequeno">Sinal {moeda(s.valorPix)}</div>}
+                    </div>
+                  </button>
+                );
+              })}
+              {quantos > 1 && (
+                <div className="total-servicos">
+                  <span>{textoQuantos} · {escolha.duracaoMinutos} min</span>
+                  <b>Total {moeda(precoTotal)}</b>
+                </div>
+              )}
             </section>
 
-            {servico && (
+            {escolha && (
               <section className="pilha-p" aria-labelledby="t-dia">
                 <h2 id="t-dia">Qual dia?</h2>
                 <div className="dias" role="list">
@@ -165,13 +224,14 @@ export default function Agendar() {
               </section>
             )}
 
-            {servico && dia && (
+            {escolha && dia && (
               <section aria-labelledby="t-hora">
                 <h2 id="t-hora">Qual horário?</h2>
+                {quantos > 1 && <p className="suave pequeno" style={{ margin: '4px 0 0' }}>Horários com tempo para os {quantos} serviços ({escolha.duracaoMinutos} min).</p>}
                 {erroHorarios && <Aviso tipo="erro">{erroHorarios} <button className="btn btn-texto" onClick={() => setAtualizar((n) => n + 1)}>Tentar de novo</button></Aviso>}
                 {!horarios && !erroHorarios && <Carregando texto="Buscando horários livres…" />}
                 {horarios && horarios.length === 0 && (
-                  <p className="vazio">Nenhum horário livre neste dia. Escolha outro dia acima.</p>
+                  <p className="vazio">Nenhum horário livre neste dia{quantos > 1 ? ' com tempo para todos os serviços' : ''}. Escolha outro dia acima.</p>
                 )}
                 {grupos.map(([periodo, lista]) => (
                   <div key={periodo}>
@@ -190,7 +250,7 @@ export default function Agendar() {
           </>
         )}
 
-        {etapa === 'dados' && (
+        {etapa === 'dados' && escolha && (
           <section className="secao pilha">
             <div>
               <h2>Seus dados</h2>
@@ -203,16 +263,20 @@ export default function Agendar() {
               <input className="entrada" value={whatsapp} onChange={(e) => setWhatsapp(mascaraTelefone(e.target.value))}
                 inputMode="tel" autoComplete="tel" placeholder="(21) 99999-8888" aria-invalid={Boolean(errosCampos.whatsapp)} />
             </Campo>
-            <div className="aviso aviso-info pilha-p">
-              <div><b>{servico.nome}</b> · {moeda(servico.preco)}</div>
-              <div>{dataLonga(horario.inicio)} às {hora(horario.inicio)}</div>
+            <div className="aviso aviso-info pilha-p resumo-reserva">
+              {escolha.lista.map((s) => (
+                <div key={s._id} className="linha-entre"><span>{s.nome}</span><span>{moeda(s.preco)}</span></div>
+              ))}
+              {quantos > 1 && <div className="linha-entre total"><b>Total</b><b>{moeda(precoTotal)}</b></div>}
+              <div>{dataLonga(horario.inicio)} às {hora(horario.inicio)} ({escolha.duracaoMinutos} min)</div>
               {!pagaNoLocal && valorPix > 0 && (
                 <div>
-                  Para garantir o horário, pague {valorPix < servico.preco ? `o sinal de ${moeda(valorPix)}` : moeda(valorPix)} no Pix
+                  Para garantir o horário, pague {valorPix < precoTotal ? `o sinal de ${moeda(valorPix)}` : moeda(valorPix)} no Pix
                   em até {loja.regras.minutosParaPagar} minutos.
+                  {valorPix < precoTotal && ` O restante (${moeda((Math.round(precoTotal * 100) - Math.round(valorPix * 100)) / 100)}) é pago na barbearia.`}
                 </div>
               )}
-              {pagaNoLocal && <div>O pagamento é feito na barbearia.</div>}
+              {(pagaNoLocal || valorPix <= 0) && <div>O pagamento é feito na barbearia.</div>}
             </div>
             {erroEnvio && <Aviso tipo="erro">{erroEnvio}</Aviso>}
           </section>
@@ -226,8 +290,12 @@ export default function Agendar() {
           {etapa === 'escolher' ? (
             <>
               <div className="resumo">
-                {servico ? <b>{servico.nome}</b> : <b>Escolha um serviço</b>}
-                <span className="suave">{horario ? `${diaSemanaCurto(horario.inicio)}, ${hora(horario.inicio)}` : servico ? 'Escolha dia e horário' : ''}</span>
+                {escolha ? <b>{moeda(precoTotal)} · {textoQuantos}</b> : <b>Escolha um ou mais serviços</b>}
+                <span className="suave">
+                  {escolha
+                    ? `${escolha.duracaoMinutos} min · ${horario ? `${diaSemanaCurto(horario.inicio)}, ${hora(horario.inicio)}` : 'Escolha dia e horário'}`
+                    : ''}
+                </span>
               </div>
               <button className="btn btn-primario" disabled={!horario} onClick={() => { setEtapa('dados'); window.scrollTo(0, 0); }}>
                 Continuar

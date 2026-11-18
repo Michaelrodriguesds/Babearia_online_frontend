@@ -25,7 +25,7 @@ export default function Agenda() {
 
   // Agenda e resumo carregam separados: se o resumo falhar, a agenda aparece mesmo assim
   const carregar = useCallback(async () => {
-    api('/painel/resumo').then(setResumo).catch(() => {});
+    api('/painel/resumo').then((r) => setResumo(r && r.mes ? r : null)).catch(() => {});
     try {
       const lista = await api(`/painel/agendamentos?data=${dia}&limite=50`);
       setItens(lista.itens);

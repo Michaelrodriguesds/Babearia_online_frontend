@@ -81,8 +81,22 @@ export async function api(caminho, { metodo = 'GET', corpo, autenticado = true }
         throw new ErroApi(0, 'Não foi possível falar com o servidor. Tente de novo em instantes.');
       }
 
-      const dados = await resposta.json().catch(() => ({}));
-      if (resposta.ok) return dados;
+      // Lê o corpo com cuidado: no iPhone, se a pessoa troca de app (banco, WhatsApp)
+      // no meio da resposta, a leitura falha. Antes isso virava "{}" e a tela quebrava.
+      const texto = await resposta.text().catch(() => null);
+      let dados = null;
+      if (texto) { try { dados = JSON.parse(texto); } catch { dados = null; } }
+      const respostaValida = dados !== null && typeof dados === 'object';
+
+      if (resposta.ok) {
+        if (respostaValida) return dados;
+        // Resposta cortada ou que não veio do nosso servidor
+        if (podeRepetir && Date.now() - inicio < 90000) { await esperar(1500); continue; }
+        throw new ErroApi(0, metodo === 'GET'
+          ? 'A conexão falhou. Tente de novo.'
+          : 'A conexão caiu antes da confirmação. Confira se deu certo antes de tentar de novo.');
+      }
+      if (!respostaValida) dados = {};
 
       // Sistema em manutenção (você ligou no /admin): não adianta repetir
       if (resposta.status === 503 && dados.manutencao) {
