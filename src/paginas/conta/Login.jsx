@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, sessao } from '../../api';
 import { Aviso, Botao, Campo } from '../../componentes/ui';
+import { linkWhatsapp } from '../../utils';
+
+const SUPORTE = import.meta.env.VITE_SUPORTE_WHATSAPP;
 
 export default function Login() {
   const navegar = useNavigate();
@@ -42,7 +45,17 @@ export default function Login() {
           </Campo>
           {erro && <Aviso tipo="erro">{erro}</Aviso>}
           <Botao type="submit" className="btn-escuro btn-largo" carregando={enviando}>Entrar</Botao>
-          <p className="suave pequeno centro">Esqueceu a senha? Fale com o suporte para receber uma nova.</p>
+          {SUPORTE ? (
+            <div className="centro pilha-p">
+              <span className="suave pequeno">Esqueceu a senha?</span>
+              <a className="btn btn-zap" target="_blank" rel="noreferrer"
+                href={linkWhatsapp(SUPORTE, `Olá! Esqueci a senha do meu painel. Meu e-mail de acesso é: ${email || '(escreva aqui)'}`)}>
+                Pedir nova senha no WhatsApp
+              </a>
+            </div>
+          ) : (
+            <p className="suave pequeno centro">Esqueceu a senha? Fale com o suporte para receber uma nova.</p>
+          )}
           <Link className="btn btn-texto" to="/cadastro">Criar conta grátis</Link>
         </form>
       </main>

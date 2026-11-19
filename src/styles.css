@@ -62,6 +62,19 @@ h3 { font-size: 1rem; }
 :root[data-tema='salao'] .logo-loja { background: var(--marca); color: var(--marca-texto); border-radius: 50%; }
 :root[data-tema='salao'] .btn { border-radius: 999px; }
 
+/* ===== Tema outro negócio (neutro) ===== */
+:root[data-tema='outro'] {
+  --papel: #f2f5f5;
+  --tinta: #1d2b33;
+  --tinta-2: #4f626b;
+  --cromo: #9fb1b6;
+  --linha: #dbe4e6;
+  --polo: #1f6f78;
+  --polo-escuro: #17545b;
+}
+:root[data-tema='outro'] .polo { height: 6px; background: repeating-linear-gradient(90deg, #1f6f78 0 16px, #dbe4e6 16px 20px); }
+:root[data-tema='outro'] .cabecalho-loja { background: #e9f1f2; }
+
 /* Faixa de poste de barbeiro */
 .polo {
   height: 8px;
@@ -287,3 +300,9 @@ details summary { cursor: pointer; }
 .servico-renda .enchimento { height: 100%; background: var(--polo); border-radius: 999px; }
 .dicas { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
 .chip-faltou { background: var(--erro); color: var(--erro-texto); }
+
+/* Escolha do ícone do negócio */
+.icones-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; }
+.icone-opcao { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border: 2px solid transparent; border-radius: var(--raio); background: var(--superficie); font-size: 0.75rem; color: var(--tinta-2); cursor: pointer; }
+.icone-opcao img { border-radius: 12px; }
+.icone-opcao[aria-checked='true'] { border-color: var(--polo); color: var(--tinta); font-weight: 700; }

@@ -29,11 +29,12 @@ export function useLoja(slug) {
 
   // Tema do tipo de negócio (barbearia, salão…) enquanto a página estiver aberta
   const tipo = loja?.tipo;
+  const icone = loja?.icone;
   useEffect(() => {
     if (!tipo) return undefined;
-    aplicarTema(tipo);
+    aplicarTema(tipo, icone);
     return () => aplicarTema(null);
-  }, [tipo]);
+  }, [tipo, icone]);
 
   return { loja, erro, recarregar: () => setTentativa((n) => n + 1) };
 }

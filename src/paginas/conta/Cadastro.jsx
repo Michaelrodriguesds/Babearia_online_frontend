@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api, sessao } from '../../api';
 import { Aviso, Botao, Campo } from '../../componentes/ui';
 import { mascaraTelefone, telefoneValido } from '../../utils';
-import { TIPOS, aplicarTema } from '../../tipos';
+import { TIPOS, aplicarTema, textosDo } from '../../tipos';
+import { EscolherIcone } from '../../componentes/EscolherIcone';
 
 export default function Cadastro() {
   const navegar = useNavigate();
-  const [d, setD] = useState({ tipo: 'barbearia', nomeBarbearia: '', nome: '', email: '', whatsapp: '', senha: '' });
-  // Já mostra o visual do tipo escolhido
-  useEffect(() => { aplicarTema(d.tipo); return () => aplicarTema(null); }, [d.tipo]);
+  const [d, setD] = useState({ tipo: 'barbearia', tipoNome: '', icone: '', nomeBarbearia: '', nome: '', email: '', whatsapp: '', senha: '' });
+  // Já mostra o visual (e o ícone) do tipo escolhido
+  useEffect(() => { aplicarTema(d.tipo, d.icone); return () => aplicarTema(null); }, [d.tipo, d.icone]);
   const [erros, setErros] = useState({});
   const [erro, setErro] = useState(null);
   const [enviando, setEnviando] = useState(false);
@@ -18,7 +19,7 @@ export default function Cadastro() {
   async function cadastrar(e) {
     e.preventDefault();
     const er = {};
-    if (d.nomeBarbearia.trim().length < 2) er.nomeBarbearia = d.tipo === 'salao' ? 'Digite o nome do salão.' : 'Digite o nome da barbearia.';
+    if (d.nomeBarbearia.trim().length < 2) er.nomeBarbearia = `Digite o ${textosDo(d.tipo).nomeCampo.toLowerCase()}.`;
     if (d.nome.trim().length < 2) er.nome = 'Digite seu nome.';
     if (!/^\S+@\S+\.\S+$/.test(d.email)) er.email = 'Digite um e-mail válido.';
     if (!telefoneValido(d.whatsapp)) er.whatsapp = 'Digite o WhatsApp com DDD.';
@@ -52,11 +53,22 @@ export default function Cadastro() {
             <span className="pequeno"><b>Seu negócio é</b></span>
             <div className="opcoes" role="group" aria-label="Tipo de negócio">
               {Object.entries(TIPOS).map(([chave, t]) => (
-                <button type="button" key={chave} className="opcao" aria-pressed={d.tipo === chave} onClick={() => setD({ ...d, tipo: chave })}>{t.rotulo}</button>
+                <button type="button" key={chave} className="opcao" aria-pressed={d.tipo === chave} onClick={() => setD({ ...d, tipo: chave, icone: '' })}>{t.rotulo}</button>
               ))}
             </div>
           </div>
-          <Campo rotulo={d.tipo === 'salao' ? 'Nome do salão' : 'Nome da barbearia'} erro={erros.nomeBarbearia}>
+          {d.tipo === 'outro' && (
+            <>
+              <Campo rotulo="Que tipo de negócio?" ajuda="Opcional. Ex.: Estúdio de tatuagem, Pet shop, Personal trainer.">
+                <input className="entrada" value={d.tipoNome} onChange={mudar('tipoNome')} maxLength={40} placeholder="Ex.: Estúdio de tatuagem" />
+              </Campo>
+              <div className="pilha-p">
+                <span className="pequeno"><b>Ícone do app</b> (dá para trocar depois)</span>
+                <EscolherIcone valor={d.icone} padrao={textosDo(d.tipo).iconePadrao} aoMudar={(icone) => setD({ ...d, icone })} />
+              </div>
+            </>
+          )}
+          <Campo rotulo={textosDo(d.tipo).nomeCampo} erro={erros.nomeBarbearia}>
             <input className="entrada" value={d.nomeBarbearia} onChange={mudar('nomeBarbearia')} aria-invalid={Boolean(erros.nomeBarbearia)} />
           </Campo>
           <Campo rotulo="Seu nome" erro={erros.nome}>

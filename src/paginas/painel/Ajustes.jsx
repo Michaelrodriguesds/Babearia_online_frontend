@@ -1,6 +1,7 @@
 // Ajustes da barbearia: dados, horários, folgas, regras, Pix e conta
-import { TIPOS, textosDo } from '../../tipos';
-import { useState } from 'react';
+import { TIPOS, textosDo, aplicarTema } from '../../tipos';
+import { EscolherIcone } from '../../componentes/EscolherIcone';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, sessao } from '../../api';
 import { usePainel } from './LayoutPainel';
@@ -280,6 +281,8 @@ function Perfil() {
   const { barbearia } = usePainel();
   const [d, setD] = useState({
     tipo: barbearia.tipo || 'barbearia',
+    tipoNome: barbearia.tipoNome || '',
+    icone: barbearia.icone || '',
     nome: barbearia.nome, whatsapp: mascaraTelefone(barbearia.whatsapp), endereco: barbearia.endereco || '',
     logoUrl: barbearia.logoUrl || '', corPrimaria: barbearia.corPrimaria && barbearia.corPrimaria !== '#111827' ? barbearia.corPrimaria : textosDo(barbearia.tipo).corPadrao,
   });
@@ -296,12 +299,17 @@ function Perfil() {
   // Trocar o tipo também troca a cor, se ela ainda for a cor padrão do tipo anterior
   function mudarTipo(tipo) {
     const corEraPadrao = d.corPrimaria.toLowerCase() === textosDo(d.tipo).corPadrao;
-    setD({ ...d, tipo, corPrimaria: corEraPadrao ? textosDo(tipo).corPadrao : d.corPrimaria });
+    setD({ ...d, tipo, icone: '', corPrimaria: corEraPadrao ? textosDo(tipo).corPadrao : d.corPrimaria });
   }
+  // Mostra na hora o ícone e o visual escolhidos (o painel volta ao salvo se sair sem salvar)
+  useEffect(() => {
+    aplicarTema(d.tipo, d.icone);
+    return () => aplicarTema(barbearia.tipo, barbearia.icone);
+  }, [d.tipo, d.icone, barbearia.tipo, barbearia.icone]);
 
   return (
     <section className="secao pilha">
-      <h2>{textosDo(barbearia.tipo).rotulo === 'Barbearia' ? 'Sua barbearia' : 'Seu salão'}</h2>
+      <h2>{textosDo(barbearia.tipo).seu}</h2>
       <div className="pilha-p">
         <span className="pequeno"><b>Tipo de negócio</b></span>
         <div className="opcoes" role="group" aria-label="Tipo de negócio">
@@ -310,6 +318,16 @@ function Perfil() {
           ))}
         </div>
         <p className="suave pequeno" style={{ margin: 0 }}>Muda o visual e as palavras da sua página e do painel. Agenda, preços e Pix continuam iguais.</p>
+      </div>
+      {d.tipo === 'outro' && (
+        <Campo rotulo="Que tipo de negócio?" ajuda="Opcional. Ex.: Estúdio de tatuagem, Pet shop, Personal trainer.">
+          <input className="entrada" value={d.tipoNome} onChange={(e) => setD({ ...d, tipoNome: e.target.value })} maxLength={40} placeholder="Ex.: Estúdio de tatuagem" />
+        </Campo>
+      )}
+      <div className="pilha-p">
+        <span className="pequeno"><b>Ícone do app</b></span>
+        <EscolherIcone valor={d.icone} padrao={textosDo(d.tipo).iconePadrao} aoMudar={(icone) => setD({ ...d, icone })} />
+        <p className="suave pequeno" style={{ margin: 0 }}>Aparece na aba do navegador e no ícone do app no celular. Quem já instalou o app precisa instalar de novo para ver o ícone novo.</p>
       </div>
       <Campo rotulo="Nome"><input className="entrada" value={d.nome} onChange={(e) => setD({ ...d, nome: e.target.value })} maxLength={80} /></Campo>
       <Campo rotulo="WhatsApp" ajuda="Os clientes falam com você por este número.">

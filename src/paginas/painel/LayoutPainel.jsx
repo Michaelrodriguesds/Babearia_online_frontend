@@ -27,11 +27,12 @@ export default function LayoutPainel() {
 
   // Visual do tipo de negócio (barbearia, salão…)
   const tipo = dados?.barbearia?.tipo;
+  const icone = dados?.barbearia?.icone;
   useEffect(() => {
     if (!tipo) return undefined;
-    aplicarTema(tipo);
+    aplicarTema(tipo, icone);
     return () => aplicarTema(null);
-  }, [tipo]);
+  }, [tipo, icone]);
 
   // Plano venceu em qualquer chamada → tela de renovação
   useEffect(() => {
