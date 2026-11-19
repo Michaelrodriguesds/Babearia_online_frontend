@@ -11,6 +11,7 @@ import LayoutPainel from './paginas/painel/LayoutPainel';
 import Agenda from './paginas/painel/Agenda';
 import Servicos from './paginas/painel/Servicos';
 import Clientes from './paginas/painel/Clientes';
+import Numeros from './paginas/painel/Numeros';
 import Ajustes from './paginas/painel/Ajustes';
 import Plano from './paginas/painel/Plano';
 import Admin from './paginas/admin/Admin';
@@ -39,6 +40,7 @@ export default function App() {
         <Route index element={<Agenda />} />
         <Route path="servicos" element={<Servicos />} />
         <Route path="clientes" element={<Clientes />} />
+        <Route path="numeros" element={<Numeros />} />
         <Route path="ajustes" element={<Ajustes />} />
       </Route>
 

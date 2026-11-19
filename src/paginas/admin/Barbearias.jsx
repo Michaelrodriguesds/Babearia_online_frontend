@@ -97,7 +97,7 @@ export default function Barbearias() {
         {visiveis.map((b) => (
           <article key={b._id} className="secao pilha-p">
             <div className="linha-entre">
-              <b>{b.nome}</b>
+              <b>{b.nome}{b.tipo === 'salao' && <span className="suave pequeno"> · Salão</span>}</b>
               <span className={`chip chip-${CHIP[b.licenca.situacao]}`}>{TEXTO[b.licenca.situacao]}</span>
             </div>
             <div className="suave pequeno">

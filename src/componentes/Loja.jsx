@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api, acordarServidor, ErroApi } from '../api';
 import { corTextoSobre } from '../utils';
+import { aplicarTema, textosDo } from '../tipos';
 
 export function useLoja(slug) {
   const [loja, setLoja] = useState(null);
@@ -26,11 +27,19 @@ export function useLoja(slug) {
     return () => { ativo = false; };
   }, [slug, tentativa]);
 
+  // Tema do tipo de negócio (barbearia, salão…) enquanto a página estiver aberta
+  const tipo = loja?.tipo;
+  useEffect(() => {
+    if (!tipo) return undefined;
+    aplicarTema(tipo);
+    return () => aplicarTema(null);
+  }, [tipo]);
+
   return { loja, erro, recarregar: () => setTentativa((n) => n + 1) };
 }
 
 export function estiloDaLoja(loja) {
-  const cor = loja?.corPrimaria && loja.corPrimaria.toLowerCase() !== '#111827' ? loja.corPrimaria : '#c4302b';
+  const cor = loja?.corPrimaria && loja.corPrimaria.toLowerCase() !== '#111827' ? loja.corPrimaria : textosDo(loja?.tipo).corPadrao;
   return { '--marca': cor, '--marca-texto': corTextoSobre(cor) };
 }
 
@@ -42,7 +51,7 @@ export function CabecalhoLoja({ loja }) {
       <div className="conteudo">
         {loja?.logoUrl ? <img className="logo-loja" src={loja.logoUrl} alt="" /> : <div className="logo-loja" aria-hidden="true">{iniciais}</div>}
         <div style={{ minWidth: 0 }}>
-          <h1 className="letreiro" style={{ fontSize: '1.35rem' }}>{loja?.nome || 'Barbearia'}</h1>
+          <h1 className="letreiro" style={{ fontSize: '1.35rem' }}>{loja?.nome || ''}</h1>
           {loja?.endereco && <p className="suave pequeno" style={{ margin: 0 }}>{loja.endereco}</p>}
         </div>
       </div>
@@ -52,11 +61,11 @@ export function CabecalhoLoja({ loja }) {
 
 // Tela para quando a barbearia não existe ou está com a agenda fechada
 export function LojaIndisponivel({ erro, aoTentar }) {
-  const titulo = erro.status === 404 ? 'Barbearia não encontrada' : erro.status === 403 ? 'Agenda fechada no momento' : 'Não foi possível abrir a agenda';
+  const titulo = erro.status === 404 ? 'Agenda não encontrada' : erro.status === 403 ? 'Agenda fechada no momento' : 'Não foi possível abrir a agenda';
   const texto = erro.status === 404
-    ? 'Confira se o link está completo, do jeito que a barbearia mandou.'
+    ? 'Confira se o link está completo, do jeito que você recebeu.'
     : erro.status === 403
-      ? 'Os agendamentos online desta barbearia estão pausados. Fale direto com ela para marcar seu horário.'
+      ? 'Os agendamentos online estão pausados. Fale direto com o estabelecimento para marcar seu horário.'
       : erro.message;
   return (
     <div className="tela-entrada">

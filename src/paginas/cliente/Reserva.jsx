@@ -4,6 +4,8 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import QRCode from 'qrcode';
 import { api } from '../../api';
 import { useLoja, estiloDaLoja, CabecalhoLoja } from '../../componentes/Loja';
+import { textosDo } from '../../tipos';
+import { removerReserva, salvarReserva } from '../../minhasReservas';
 import { Aviso, Botao, Carregando, useToast } from '../../componentes/ui';
 import { LinkRelatar } from '../../componentes/Relatar';
 import { copiarTexto, dataLonga, hora, linkGoogleAgenda, linkWhatsapp, moeda } from '../../utils';
@@ -27,6 +29,7 @@ export default function Reserva() {
   const { state } = useLocation();
   const toast = useToast();
   const { loja } = useLoja(slug);
+  const tx = textosDo(loja?.tipo);
 
   const inicial = state?.reserva
     ? { ...state.reserva, servico: state.reserva.servico, pix: state.reserva.pix && { ...state.reserva.pix, modo: loja?.pagamentoModo } }
@@ -45,6 +48,9 @@ export default function Reserva() {
         if (!ativo) return;
         setAg((anterior) => ({ ...anterior, ...d, pix: d.pix || (d.status === 'pendente' ? anterior?.pix : null) }));
         setErro(null);
+        // guarda neste aparelho para o cliente achar de novo (e poder desistir) pela página da agenda
+        if (['pendente', 'confirmado'].includes(d.status)) salvarReserva(slug, { id, c: codigo, inicio: d.inicio });
+        else removerReserva(slug, id);
         if (d.status === 'pendente') timer = setTimeout(consultar, document.hidden ? 15000 : 5000);
         else localStorage.removeItem(`reserva:${slug}`);
       } catch (e) {
@@ -71,7 +77,7 @@ export default function Reserva() {
     try {
       const r = await api(`/publico/agendamentos/${id}/informar-pagamento`, { metodo: 'POST', autenticado: false, corpo: { codigo } });
       setAg((anterior) => ({ ...anterior, ...r }));
-      toast('Pronto! A barbearia foi avisada para conferir o Pix.');
+      toast(`Pronto! ${tx.A} foi ${tx.avisada} para conferir o Pix.`);
     } catch (e) {
       toast(e.message, 'erro');
     } finally {
@@ -117,7 +123,7 @@ export default function Reserva() {
               {quando}
             </div>
             <Aviso tipo="ok">
-              Você avisou que pagou {moeda(ag.valorCobrado)} no Pix. Seu horário está guardado enquanto a barbearia confere e confirma.
+              Você avisou que pagou {moeda(ag.valorCobrado)} no Pix. Seu horário está guardado enquanto {tx.a} confere e confirma.
             </Aviso>
             {zapLoja && (
               <a className="btn btn-zap btn-largo" target="_blank" rel="noreferrer"
@@ -125,7 +131,7 @@ export default function Reserva() {
                 Enviar comprovante no WhatsApp
               </a>
             )}
-            <p className="suave pequeno centro">Esta tela muda sozinha para "Horário confirmado" assim que a barbearia confirmar.</p>
+            <p className="suave pequeno centro">Esta tela muda sozinha para "Horário confirmado" assim que {tx.a} confirmar.</p>
           </>
         )}
 
@@ -141,7 +147,7 @@ export default function Reserva() {
                 <div className="data-grande">{moeda(ag.valorCobrado)}</div>
                 {parcial && (
                   <div className="suave pequeno">
-                    Total {moeda(ag.valorTotal)} · o restante ({moeda(restante)}) você paga na barbearia
+                    Total {moeda(ag.valorTotal)} · o restante ({moeda(restante)}) você paga {tx.na}
                   </div>
                 )}
               </div>
@@ -161,13 +167,13 @@ export default function Reserva() {
                   <p className="suave pequeno" style={{ margin: 0 }}>Abra o app do banco, escolha Pix copia e cola (ou leia o QR Code em outro celular) e confirme.</p>
                 </>
               ) : (
-                <Aviso tipo="atencao">O código Pix não está disponível neste aparelho. Fale com a barbearia para pagar.</Aviso>
+                <Aviso tipo="atencao">O código Pix não está disponível neste aparelho. Fale com {tx.a} para pagar.</Aviso>
               )}
             </section>
             {ag.pix?.modo !== 'mercadopago' && (
               <section className="secao pilha-p">
                 <b>Já pagou?</b>
-                <p className="suave pequeno" style={{ margin: 0 }}>Toque abaixo para avisar a barbearia. Seu horário fica guardado enquanto ela confere o Pix.</p>
+                <p className="suave pequeno" style={{ margin: 0 }}>Toque abaixo para avisar {tx.a}. Seu horário fica guardado enquanto {tx.ela} confere o Pix.</p>
                 <Botao className="btn-escuro btn-largo" carregando={avisando} onClick={informarPagamento}>Já fiz o Pix</Botao>
                 {zapLoja && (
                   <a className="btn btn-zap btn-largo" target="_blank" rel="noreferrer"
@@ -178,6 +184,7 @@ export default function Reserva() {
               </section>
             )}
             <p className="suave pequeno centro">Esta tela atualiza sozinha quando o pagamento for confirmado.</p>
+            <Link className="btn btn-texto" to={`/b/${slug}/cancelar/${id}?c=${codigo}`}>Desistir deste horário</Link>
           </>
         )}
 
@@ -187,12 +194,28 @@ export default function Reserva() {
             {quando}
             {loja?.endereco && <p style={{ margin: 0 }}>{loja.endereco}</p>}
             <a className="btn btn-escuro btn-largo" target="_blank" rel="noreferrer"
-              href={linkGoogleAgenda({ titulo: `${ag.servico} - ${loja?.nome || 'Barbearia'}`, inicio: ag.inicio, fim: ag.fim || ag.inicio, local: loja?.endereco })}>
+              href={linkGoogleAgenda({ titulo: `${ag.servico} - ${loja?.nome || tx.rotulo}`, inicio: ag.inicio, fim: ag.fim || ag.inicio, local: loja?.endereco })}>
               Salvar na minha agenda
             </a>
-            {zapLoja && <a className="btn btn-contorno btn-largo" target="_blank" rel="noreferrer" href={linkWhatsapp(zapLoja)}>Falar com a barbearia</a>}
-            {ag.status === 'confirmado' && (
-              <Link className="btn btn-texto" to={`/b/${slug}/cancelar/${id}?c=${codigo}`}>Preciso cancelar</Link>
+            {zapLoja && <a className="btn btn-contorno btn-largo" target="_blank" rel="noreferrer" href={linkWhatsapp(zapLoja)}>Falar com {tx.a}</a>}
+            {ag.status === 'confirmado' && ag.desistencia?.podeDesistir && (
+              <>
+                <Link className="btn btn-contorno btn-largo" to={`/b/${slug}/cancelar/${id}?c=${codigo}`}>Desistir do horário</Link>
+                {ag.desistencia?.prazoHoras > 0 && (
+                  <p className="suave pequeno centro" style={{ margin: 0 }}>Pelo app, dá para desistir até {ag.desistencia.prazoHoras}h antes do horário.</p>
+                )}
+              </>
+            )}
+            {ag.status === 'confirmado' && ag.desistencia && !ag.desistencia.podeDesistir && (
+              <Aviso tipo="info">
+                Falta menos de {ag.desistencia.prazoHoras}h para o horário. Se não puder vir, avise {tx.a} pelo WhatsApp.
+                {zapLoja && (
+                  <a className="btn btn-zap btn-largo" style={{ marginTop: 8 }} target="_blank" rel="noreferrer"
+                    href={linkWhatsapp(zapLoja, `Olá! Não vou conseguir ir no meu horário: ${ag.servico}, ${dataLonga(ag.inicio)} às ${hora(ag.inicio)}.`)}>
+                    Avisar que não vou
+                  </a>
+                )}
+              </Aviso>
             )}
           </>
         )}
@@ -205,7 +228,7 @@ export default function Reserva() {
             {zapLoja && (
               <a className="btn btn-zap btn-largo" target="_blank" rel="noreferrer"
                 href={linkWhatsapp(zapLoja, `Olá! Fiz o Pix da reserva (${ag.servico}, ${dataLonga(ag.inicio)} às ${hora(ag.inicio)}), mas a tela diz que o prazo acabou. Segue o comprovante.`)}>
-                Já paguei: falar com a barbearia
+                Já paguei: falar com {tx.a}
               </a>
             )}
           </>
@@ -222,8 +245,8 @@ export default function Reserva() {
         {ag.status === 'conflito' && (
           <>
             <Aviso tipo="atencao"><b>Recebemos seu pagamento</b>, mas ele chegou depois do prazo e o horário já tinha sido ocupado.</Aviso>
-            <p>A barbearia já foi avisada e vai combinar com você um novo horário ou a devolução do valor.</p>
-            {zapLoja && <a className="btn btn-zap btn-largo" target="_blank" rel="noreferrer" href={linkWhatsapp(zapLoja, `Olá! Paguei o Pix depois do prazo (${ag.servico}, ${dataLonga(ag.inicio)}). Como resolvemos?`)}>Falar com a barbearia</a>}
+            <p>{tx.A} já foi {tx.avisada} e vai combinar com você um novo horário ou a devolução do valor.</p>
+            {zapLoja && <a className="btn btn-zap btn-largo" target="_blank" rel="noreferrer" href={linkWhatsapp(zapLoja, `Olá! Paguei o Pix depois do prazo (${ag.servico}, ${dataLonga(ag.inicio)}). Como resolvemos?`)}>Falar com {tx.a}</a>}
           </>
         )}
         <LinkRelatar slug={slug} />

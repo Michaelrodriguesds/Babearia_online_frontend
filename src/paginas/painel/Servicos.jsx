@@ -3,16 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Aviso, Botao, Campo, Carregando, Modal, useToast } from '../../componentes/ui';
 import { moeda } from '../../utils';
+import { usePainel } from './LayoutPainel';
 
 const DURACOES = [15, 20, 30, 40, 45, 60, 75, 90, 120, 150, 180];
 const VAZIO = { nome: '', preco: '', duracaoMinutos: 30, descricao: '' };
-const SUGESTOES = [
-  { nome: 'Corte', preco: 40, duracaoMinutos: 30 },
-  { nome: 'Barba', preco: 30, duracaoMinutos: 30 },
-  { nome: 'Corte + Barba', preco: 60, duracaoMinutos: 60 },
-];
 
 export default function Servicos() {
+  const { tx } = usePainel();
+  const sugestoes = tx.sugestoes;
   const toast = useToast();
   const [lista, setLista] = useState(null);
   const [erro, setErro] = useState(null);
@@ -24,7 +22,7 @@ export default function Servicos() {
   async function alternarAtivo(s) {
     try {
       await api(`/painel/servicos/${s._id}`, { metodo: 'PUT', corpo: { ativo: !s.ativo } });
-      toast(s.ativo ? 'Serviço escondido da agenda.' : 'Serviço voltou para a agenda.');
+      toast(s.ativo ? 'Escondido da agenda.' : 'Voltou para a agenda.');
       carregar();
     } catch (e) {
       toast(e.message, 'erro');
@@ -33,8 +31,8 @@ export default function Servicos() {
 
   async function criarSugestoes() {
     try {
-      for (const s of SUGESTOES) await api('/painel/servicos', { metodo: 'POST', corpo: s });
-      toast('Serviços criados. Ajuste os preços se precisar.');
+      for (const s of sugestoes) await api('/painel/servicos', { metodo: 'POST', corpo: s });
+      toast(`${tx.Servicos} criados. Ajuste os preços se precisar.`);
       carregar();
     } catch (e) {
       toast(e.message, 'erro');
@@ -44,15 +42,15 @@ export default function Servicos() {
   return (
     <div className="pilha">
       <div className="linha-entre">
-        <h1 className="letreiro" style={{ fontSize: '1.4rem' }}>Serviços</h1>
-        <button className="btn btn-escuro btn-pequeno" onClick={() => setEditando(VAZIO)}>Novo serviço</button>
+        <h1 className="letreiro" style={{ fontSize: '1.4rem' }}>{tx.Servicos}</h1>
+        <button className="btn btn-escuro btn-pequeno" onClick={() => setEditando(VAZIO)}>{tx.novoServico}</button>
       </div>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
       {!lista && !erro && <Carregando />}
       {lista && lista.length === 0 && (
         <section className="secao pilha-p centro">
           <p style={{ margin: 0 }}>Cadastre o que você oferece para os clientes poderem agendar.</p>
-          <button className="btn btn-primario" onClick={criarSugestoes}>Começar com Corte, Barba e Corte + Barba</button>
+          <button className="btn btn-primario" onClick={criarSugestoes}>Começar com {sugestoes.map((s) => s.nome).join(', ').replace(/, ([^,]*)$/, ' e $1')}</button>
         </section>
       )}
       {lista && lista.length > 0 && (
@@ -75,6 +73,7 @@ export default function Servicos() {
 }
 
 function ModalServico({ servico, aoFechar, aoSalvar }) {
+  const { tx } = usePainel();
   const toast = useToast();
   const [d, setD] = useState(VAZIO);
   const [erro, setErro] = useState(null);
@@ -89,7 +88,7 @@ function ModalServico({ servico, aoFechar, aoSalvar }) {
     const texto = String(d.preco).trim();
     // aceita "40", "39,90", "39.90" e "1.200,00"
     const preco = Number(texto.includes(',') ? texto.replace(/\./g, '').replace(',', '.') : texto);
-    if (d.nome.trim().length < 2) return setErro('Digite o nome do serviço.');
+    if (d.nome.trim().length < 2) return setErro(`Digite o nome do ${tx.servico}.`);
     if (!Number.isFinite(preco) || preco < 0) return setErro('Digite um preço válido, ex.: 40 ou 39,90.');
     setEnviando(true);
     setErro(null);
@@ -97,7 +96,7 @@ function ModalServico({ servico, aoFechar, aoSalvar }) {
     try {
       if (servico._id) await api(`/painel/servicos/${servico._id}`, { metodo: 'PUT', corpo });
       else await api('/painel/servicos', { metodo: 'POST', corpo });
-      toast('Serviço salvo.');
+      toast('Salvo.');
       aoSalvar();
     } catch (e) {
       setErro(e.message);
@@ -107,8 +106,8 @@ function ModalServico({ servico, aoFechar, aoSalvar }) {
   }
 
   return (
-    <Modal titulo={servico?._id ? 'Editar serviço' : 'Novo serviço'} aberto={Boolean(servico)} aoFechar={aoFechar}>
-      <Campo rotulo="Nome"><input className="entrada" value={d.nome} onChange={(e) => setD({ ...d, nome: e.target.value })} placeholder="Ex.: Corte degradê" maxLength={60} /></Campo>
+    <Modal titulo={servico?._id ? `Editar ${tx.servico}` : tx.novoServico} aberto={Boolean(servico)} aoFechar={aoFechar}>
+      <Campo rotulo="Nome"><input className="entrada" value={d.nome} onChange={(e) => setD({ ...d, nome: e.target.value })} placeholder={tx.exemploServico} maxLength={60} /></Campo>
       <div className="grade-2">
         <Campo rotulo="Preço (R$)"><input className="entrada" inputMode="decimal" value={d.preco} onChange={(e) => setD({ ...d, preco: e.target.value })} placeholder="40,00" /></Campo>
         <Campo rotulo="Duração">
@@ -119,7 +118,7 @@ function ModalServico({ servico, aoFechar, aoSalvar }) {
       </div>
       <Campo rotulo="Descrição (opcional)"><input className="entrada" value={d.descricao} onChange={(e) => setD({ ...d, descricao: e.target.value })} maxLength={200} /></Campo>
       {erro && <Aviso tipo="erro">{erro}</Aviso>}
-      <Botao className="btn-escuro btn-largo" carregando={enviando} onClick={salvar}>Salvar serviço</Botao>
+      <Botao className="btn-escuro btn-largo" carregando={enviando} onClick={salvar}>Salvar {tx.servico}</Botao>
     </Modal>
   );
 }

@@ -47,7 +47,7 @@ export default function Plano() {
             {l.ativa ? 'Renovar pelo WhatsApp' : 'Reativar pelo WhatsApp'}
           </a>
         )}
-        <p className="suave pequeno">Código da sua barbearia: {l.barbeariaId}</p>
+        <p className="suave pequeno">Seu código: {l.barbeariaId}</p>
         {l.ativa && <Link className="btn btn-contorno btn-largo" to="/painel">Voltar ao painel</Link>}
         <button className="btn btn-texto" onClick={sair}>Sair da conta</button>
       </main>

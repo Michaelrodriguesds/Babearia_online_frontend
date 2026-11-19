@@ -46,11 +46,11 @@ export default function Agenda() {
 
   const irPara = (novo) => setBusca(novo === isoDia() ? {} : { data: novo });
 
-  async function executar(id, caminho, metodo, mensagem, pergunta) {
+  async function executar(id, caminho, metodo, mensagem, pergunta, corpo) {
     if (pergunta && !window.confirm(pergunta)) return;
     setAcao(id);
     try {
-      await api(caminho, { metodo });
+      await api(caminho, { metodo, corpo });
       toast(mensagem);
       await carregar();
     } catch (e) {
@@ -125,6 +125,11 @@ export default function Agenda() {
                     {a.pagamento?.pagoEm ? ' · Pix recebido' : a.pagamento?.modo === 'local' ? ' · paga no local' : ''}
                   </div>
                 )}
+                {a.status === 'cancelado' && a.cancelamento?.por === 'cliente' && (
+                  <div className="pequeno" style={{ color: 'var(--polo-escuro)' }}>
+                    Cliente desistiu pelo app{a.cancelamento.motivo ? `: ${a.cancelamento.motivo}` : ''}
+                  </div>
+                )}
                 <div className="acoes">
                   {a.status === 'pendente' && (
                     <Botao className="btn-primario btn-pequeno" carregando={acao === a._id}
@@ -145,6 +150,18 @@ export default function Agenda() {
                     <button className="btn btn-perigo btn-pequeno" disabled={acao === a._id}
                       onClick={() => executar(a._id, `/painel/agendamentos/${a._id}/cancelar`, 'POST', 'Agendamento cancelado. O cliente foi avisado.', `Cancelar o horário de ${a.clienteNome}? O cliente será avisado.`)}>
                       Cancelar
+                    </button>
+                  )}
+                  {['confirmado', 'concluido'].includes(a.status) && new Date(a.inicio) <= new Date() && (
+                    <button className="btn btn-contorno btn-pequeno" disabled={acao === a._id}
+                      onClick={() => executar(a._id, `/painel/agendamentos/${a._id}/faltou`, 'POST', 'Marcado como falta.', `${a.clienteNome} não apareceu? O horário fica marcado como falta nos seus números.`)}>
+                      Faltou
+                    </button>
+                  )}
+                  {a.status === 'faltou' && (
+                    <button className="btn btn-texto btn-pequeno" disabled={acao === a._id}
+                      onClick={() => executar(a._id, `/painel/agendamentos/${a._id}/faltou`, 'POST', 'Falta desfeita.', null, { desfazer: true })}>
+                      Desfazer falta
                     </button>
                   )}
                   {a.tipo === 'bloqueio' && (

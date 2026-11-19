@@ -107,4 +107,5 @@ export const STATUS_TEXTO = {
   expirado: 'Expirou',
   bloqueado: 'Bloqueado',
   conflito: 'Conflito',
+  faltou: 'Faltou',
 };

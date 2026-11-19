@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, sessao } from '../../api';
 import { Aviso, Botao, Campo } from '../../componentes/ui';
 import { mascaraTelefone, telefoneValido } from '../../utils';
+import { TIPOS, aplicarTema } from '../../tipos';
 
 export default function Cadastro() {
   const navegar = useNavigate();
-  const [d, setD] = useState({ nomeBarbearia: '', nome: '', email: '', whatsapp: '', senha: '' });
+  const [d, setD] = useState({ tipo: 'barbearia', nomeBarbearia: '', nome: '', email: '', whatsapp: '', senha: '' });
+  // Já mostra o visual do tipo escolhido
+  useEffect(() => { aplicarTema(d.tipo); return () => aplicarTema(null); }, [d.tipo]);
   const [erros, setErros] = useState({});
   const [erro, setErro] = useState(null);
   const [enviando, setEnviando] = useState(false);
@@ -15,7 +18,7 @@ export default function Cadastro() {
   async function cadastrar(e) {
     e.preventDefault();
     const er = {};
-    if (d.nomeBarbearia.trim().length < 2) er.nomeBarbearia = 'Digite o nome da barbearia.';
+    if (d.nomeBarbearia.trim().length < 2) er.nomeBarbearia = d.tipo === 'salao' ? 'Digite o nome do salão.' : 'Digite o nome da barbearia.';
     if (d.nome.trim().length < 2) er.nome = 'Digite seu nome.';
     if (!/^\S+@\S+\.\S+$/.test(d.email)) er.email = 'Digite um e-mail válido.';
     if (!telefoneValido(d.whatsapp)) er.whatsapp = 'Digite o WhatsApp com DDD.';
@@ -45,7 +48,15 @@ export default function Cadastro() {
             <h1 className="letreiro">Criar conta</h1>
             <p className="suave" style={{ margin: '6px 0 0' }}>30 dias grátis. Sem cartão.</p>
           </div>
-          <Campo rotulo="Nome da barbearia" erro={erros.nomeBarbearia}>
+          <div className="pilha-p">
+            <span className="pequeno"><b>Seu negócio é</b></span>
+            <div className="opcoes" role="group" aria-label="Tipo de negócio">
+              {Object.entries(TIPOS).map(([chave, t]) => (
+                <button type="button" key={chave} className="opcao" aria-pressed={d.tipo === chave} onClick={() => setD({ ...d, tipo: chave })}>{t.rotulo}</button>
+              ))}
+            </div>
+          </div>
+          <Campo rotulo={d.tipo === 'salao' ? 'Nome do salão' : 'Nome da barbearia'} erro={erros.nomeBarbearia}>
             <input className="entrada" value={d.nomeBarbearia} onChange={mudar('nomeBarbearia')} aria-invalid={Boolean(erros.nomeBarbearia)} />
           </Campo>
           <Campo rotulo="Seu nome" erro={erros.nome}>

@@ -4,6 +4,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import { Aviso, Carregando, Icone } from '../../componentes/ui';
 import { dataCurta } from '../../utils';
+import { aplicarTema, textosDo } from '../../tipos';
 
 const PainelContexto = createContext(null);
 export const usePainel = () => useContext(PainelContexto);
@@ -24,6 +25,14 @@ export default function LayoutPainel() {
 
   useEffect(() => { recarregar(); }, [recarregar]);
 
+  // Visual do tipo de negócio (barbearia, salão…)
+  const tipo = dados?.barbearia?.tipo;
+  useEffect(() => {
+    if (!tipo) return undefined;
+    aplicarTema(tipo);
+    return () => aplicarTema(null);
+  }, [tipo]);
+
   // Plano venceu em qualquer chamada → tela de renovação
   useEffect(() => {
     const ir = () => navegar('/painel/plano', { replace: true });
@@ -43,7 +52,7 @@ export default function LayoutPainel() {
 
   const { barbearia, licenca } = dados;
   return (
-    <PainelContexto.Provider value={{ barbearia, licenca, linkPublico: dados.linkPublico, recarregar }}>
+    <PainelContexto.Provider value={{ barbearia, licenca, linkPublico: dados.linkPublico, recarregar, tx: textosDo(barbearia.tipo) }}>
       <header className="topo-painel">
         <div className="polo" />
         <div className="conteudo">
@@ -62,6 +71,7 @@ export default function LayoutPainel() {
         <NavLink to="/painel" end>{Icone.agenda}Agenda</NavLink>
         <NavLink to="/painel/servicos">{Icone.tesoura}Serviços</NavLink>
         <NavLink to="/painel/clientes">{Icone.pessoas}Clientes</NavLink>
+        <NavLink to="/painel/numeros">{Icone.numeros}Números</NavLink>
         <NavLink to="/painel/ajustes">{Icone.ajustes}Ajustes</NavLink>
       </nav>
     </PainelContexto.Provider>

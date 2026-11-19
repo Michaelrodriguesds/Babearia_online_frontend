@@ -6,6 +6,9 @@ import { useLoja, estiloDaLoja, CabecalhoLoja, LojaIndisponivel } from '../../co
 import { Aviso, Botao, Campo, Carregando, useToast } from '../../componentes/ui';
 import { LinkRelatar } from '../../componentes/Relatar';
 import { calcularCobranca, somarPrecos } from '../../dinheiro';
+import { textosDo } from '../../tipos';
+import { MeusHorarios } from '../../componentes/MeusHorarios';
+import { salvarReserva } from '../../minhasReservas';
 import {
   diaDaSemana, diaDoMes, diaSemanaCurto, dataLonga, isoDia, moeda, somarDias, mascaraTelefone, telefoneValido, hora,
 } from '../../utils';
@@ -38,12 +41,6 @@ export default function Agendar() {
   const [enviando, setEnviando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState(null);
   const [atualizar, setAtualizar] = useState(0);
-
-  // Reserva aguardando Pix feita antes neste celular
-  const pendente = useMemo(() => {
-    const r = lerJSON(`reserva:${slug}`);
-    return r && new Date(r.expiraEm) > new Date() ? r : null;
-  }, [slug]);
 
   // Próximos dias em que a barbearia atende
   const dias = useMemo(() => {
@@ -87,11 +84,11 @@ export default function Agendar() {
       return;
     }
     if (escolhidos.length >= MAX_SERVICOS) {
-      toast(`Escolha no máximo ${MAX_SERVICOS} serviços por horário.`, 'erro');
+      toast(`Escolha no máximo ${MAX_SERVICOS} ${textosDo(loja?.tipo).servicos} por horário.`, 'erro');
       return;
     }
     if ((escolha?.duracaoMinutos || 0) + s.duracaoMinutos > MAX_MINUTOS) {
-      toast('Os serviços escolhidos passariam de 8 horas.', 'erro');
+      toast(`Os ${textosDo(loja?.tipo).servicos} escolhidos passariam de 8 horas.`, 'erro');
       return;
     }
     setEscolhidos([...escolhidos, s._id]);
@@ -138,9 +135,7 @@ export default function Agendar() {
         corpo: { servicoIds: escolha.ids, inicio: horario.inicio, nome: nome.trim(), whatsapp: whatsapp.replace(/\D/g, '') },
       });
       localStorage.setItem('cliente', JSON.stringify({ nome: nome.trim(), whatsapp }));
-      if (r.status === 'pendente') {
-        localStorage.setItem(`reserva:${slug}`, JSON.stringify({ id: r.id, c: r.codigo, expiraEm: r.expiraEm }));
-      }
+      salvarReserva(slug, { id: r.id, c: r.codigo, inicio: horario.inicio }); // para achar de novo e poder desistir
       navegar(`/b/${slug}/reserva/${r.id}?c=${r.codigo}`, { state: { reserva: r } });
     } catch (e) {
       if (e.status === 409 || e.status === 404) {
@@ -162,28 +157,24 @@ export default function Agendar() {
   if (!loja) return (<><CabecalhoLoja loja={null} /><Carregando texto="Abrindo a agenda…" /></>);
 
   const pagaNoLocal = loja.regras.cobranca === 'local';
+  const tx = textosDo(loja.tipo);
   const quantos = escolha?.lista.length || 0;
-  const textoQuantos = quantos === 1 ? '1 serviço' : `${quantos} serviços`;
+  const textoQuantos = quantos === 1 ? `1 ${tx.servico}` : `${quantos} ${tx.servicos}`;
 
   return (
     <div style={estiloDaLoja(loja)}>
       <CabecalhoLoja loja={loja} />
       <main className="pagina pilha">
-        {pendente && (
-          <Aviso tipo="atencao">
-            Você tem uma reserva aguardando o Pix.{' '}
-            <Link to={`/b/${slug}/reserva/${pendente.id}?c=${pendente.c}`}><b>Ver o Pix</b></Link>
-          </Aviso>
-        )}
+        {etapa === 'escolher' && <MeusHorarios slug={slug} tx={tx} />}
 
         {etapa === 'escolher' && (
           <>
             <section className="pilha-p" aria-labelledby="t-servico">
-              <h2 id="t-servico">Quais serviços?</h2>
+              <h2 id="t-servico">{tx.pergunta}</h2>
               {loja.servicos.length > 1 && (
                 <p className="suave pequeno" style={{ margin: 0 }}>Pode escolher mais de um. Toque de novo para tirar.</p>
               )}
-              {loja.servicos.length === 0 && <p className="suave">Esta barbearia ainda não cadastrou serviços.</p>}
+              {loja.servicos.length === 0 && <p className="suave">{tx.esta} ainda não cadastrou {tx.servicos}.</p>}
               {loja.servicos.map((s) => {
                 const marcado = escolhidos.includes(s._id);
                 return (
@@ -227,11 +218,11 @@ export default function Agendar() {
             {escolha && dia && (
               <section aria-labelledby="t-hora">
                 <h2 id="t-hora">Qual horário?</h2>
-                {quantos > 1 && <p className="suave pequeno" style={{ margin: '4px 0 0' }}>Horários com tempo para os {quantos} serviços ({escolha.duracaoMinutos} min).</p>}
+                {quantos > 1 && <p className="suave pequeno" style={{ margin: '4px 0 0' }}>Horários com tempo para os {quantos} {tx.servicos} ({escolha.duracaoMinutos} min).</p>}
                 {erroHorarios && <Aviso tipo="erro">{erroHorarios} <button className="btn btn-texto" onClick={() => setAtualizar((n) => n + 1)}>Tentar de novo</button></Aviso>}
                 {!horarios && !erroHorarios && <Carregando texto="Buscando horários livres…" />}
                 {horarios && horarios.length === 0 && (
-                  <p className="vazio">Nenhum horário livre neste dia{quantos > 1 ? ' com tempo para todos os serviços' : ''}. Escolha outro dia acima.</p>
+                  <p className="vazio">Nenhum horário livre neste dia{quantos > 1 ? ` com tempo para todos os ${tx.servicos}` : ''}. Escolha outro dia acima.</p>
                 )}
                 {grupos.map(([periodo, lista]) => (
                   <div key={periodo}>
@@ -273,10 +264,10 @@ export default function Agendar() {
                 <div>
                   Para garantir o horário, pague {valorPix < precoTotal ? `o sinal de ${moeda(valorPix)}` : moeda(valorPix)} no Pix
                   em até {loja.regras.minutosParaPagar} minutos.
-                  {valorPix < precoTotal && ` O restante (${moeda((Math.round(precoTotal * 100) - Math.round(valorPix * 100)) / 100)}) é pago na barbearia.`}
+                  {valorPix < precoTotal && ` O restante (${moeda((Math.round(precoTotal * 100) - Math.round(valorPix * 100)) / 100)}) é pago ${tx.na}.`}
                 </div>
               )}
-              {(pagaNoLocal || valorPix <= 0) && <div>O pagamento é feito na barbearia.</div>}
+              {(pagaNoLocal || valorPix <= 0) && <div>O pagamento é feito {tx.na}.</div>}
             </div>
             {erroEnvio && <Aviso tipo="erro">{erroEnvio}</Aviso>}
           </section>
@@ -290,7 +281,7 @@ export default function Agendar() {
           {etapa === 'escolher' ? (
             <>
               <div className="resumo">
-                {escolha ? <b>{moeda(precoTotal)} · {textoQuantos}</b> : <b>Escolha um ou mais serviços</b>}
+                {escolha ? <b>{moeda(precoTotal)} · {textoQuantos}</b> : <b>Escolha um ou mais {tx.servicos}</b>}
                 <span className="suave">
                   {escolha
                     ? `${escolha.duracaoMinutos} min · ${horario ? `${diaSemanaCurto(horario.inicio)}, ${hora(horario.inicio)}` : 'Escolha dia e horário'}`

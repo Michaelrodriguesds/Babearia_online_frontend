@@ -1,4 +1,5 @@
 // Ajustes da barbearia: dados, horários, folgas, regras, Pix e conta
+import { TIPOS, textosDo } from '../../tipos';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, sessao } from '../../api';
@@ -36,12 +37,13 @@ function useSalvar() {
 export default function Ajustes() {
   const [busca] = useSearchParams();
   const navegar = useNavigate();
+  const { tx } = usePainel();
   return (
     <div className="pilha">
       <h1 className="letreiro" style={{ fontSize: '1.4rem' }}>Ajustes</h1>
       {busca.get('boasvindas') && (
         <Aviso tipo="ok">
-          <b>Conta criada!</b> Para começar a receber agendamentos: cadastre sua chave Pix aqui embaixo, confira seus horários e depois crie seus serviços na aba Serviços.
+          <b>Conta criada!</b> Para começar a receber agendamentos: cadastre sua chave Pix aqui embaixo, confira seus horários e depois crie seus {tx.servicos} na aba {tx.Servicos}.
         </Aviso>
       )}
       <Pix />
@@ -177,7 +179,7 @@ function Horarios() {
 }
 
 function Regras() {
-  const { barbearia } = usePainel();
+  const { barbearia, tx } = usePainel();
   const [r, setR] = useState({ ...barbearia.regras });
   const { salvar, enviando, erro } = useSalvar();
   const mudar = (campo, valor) => setR({ ...r, [campo]: valor });
@@ -205,7 +207,7 @@ function Regras() {
         <div className="grade-2">
           <Campo rotulo="Tipo de sinal">
             <select className="entrada" value={r.sinalTipo} onChange={(e) => mudar('sinalTipo', e.target.value)}>
-              <option value="percentual">% do serviço</option>
+              <option value="percentual">% do {tx.servico}</option>
               <option value="fixo">Valor fixo (R$)</option>
             </select>
           </Campo>
@@ -277,8 +279,9 @@ function Folgas() {
 function Perfil() {
   const { barbearia } = usePainel();
   const [d, setD] = useState({
+    tipo: barbearia.tipo || 'barbearia',
     nome: barbearia.nome, whatsapp: mascaraTelefone(barbearia.whatsapp), endereco: barbearia.endereco || '',
-    logoUrl: barbearia.logoUrl || '', corPrimaria: barbearia.corPrimaria && barbearia.corPrimaria !== '#111827' ? barbearia.corPrimaria : '#c4302b',
+    logoUrl: barbearia.logoUrl || '', corPrimaria: barbearia.corPrimaria && barbearia.corPrimaria !== '#111827' ? barbearia.corPrimaria : textosDo(barbearia.tipo).corPadrao,
   });
   const { salvar, enviando, erro, setErro } = useSalvar();
   const [logoQuebrada, setLogoQuebrada] = useState(false);
@@ -290,15 +293,30 @@ function Perfil() {
     salvar('/painel/barbearia', { ...d, whatsapp: d.whatsapp.replace(/\D/g, '') }, 'Dados salvos.');
   }
 
+  // Trocar o tipo também troca a cor, se ela ainda for a cor padrão do tipo anterior
+  function mudarTipo(tipo) {
+    const corEraPadrao = d.corPrimaria.toLowerCase() === textosDo(d.tipo).corPadrao;
+    setD({ ...d, tipo, corPrimaria: corEraPadrao ? textosDo(tipo).corPadrao : d.corPrimaria });
+  }
+
   return (
     <section className="secao pilha">
-      <h2>Sua barbearia</h2>
+      <h2>{textosDo(barbearia.tipo).rotulo === 'Barbearia' ? 'Sua barbearia' : 'Seu salão'}</h2>
+      <div className="pilha-p">
+        <span className="pequeno"><b>Tipo de negócio</b></span>
+        <div className="opcoes" role="group" aria-label="Tipo de negócio">
+          {Object.entries(TIPOS).map(([chave, t]) => (
+            <button key={chave} className="opcao" aria-pressed={d.tipo === chave} onClick={() => mudarTipo(chave)}>{t.rotulo}</button>
+          ))}
+        </div>
+        <p className="suave pequeno" style={{ margin: 0 }}>Muda o visual e as palavras da sua página e do painel. Agenda, preços e Pix continuam iguais.</p>
+      </div>
       <Campo rotulo="Nome"><input className="entrada" value={d.nome} onChange={(e) => setD({ ...d, nome: e.target.value })} maxLength={80} /></Campo>
       <Campo rotulo="WhatsApp" ajuda="Os clientes falam com você por este número.">
         <input className="entrada" inputMode="tel" value={d.whatsapp} onChange={(e) => setD({ ...d, whatsapp: mascaraTelefone(e.target.value) })} />
       </Campo>
       <Campo rotulo="Endereço"><input className="entrada" value={d.endereco} onChange={(e) => setD({ ...d, endereco: e.target.value })} maxLength={200} placeholder="Rua, número, bairro" /></Campo>
-      <Campo rotulo="Link da logo (opcional)" ajuda="Aparece no topo da sua página de agendamento. Sem logo, aparecem as iniciais da barbearia. Envie a imagem em postimages.org e cole o “Link direto” (termina em .png ou .jpg).">
+      <Campo rotulo="Link da logo (opcional)" ajuda="Aparece no topo da sua página de agendamento. Sem logo, aparecem as iniciais do nome. Envie a imagem em postimages.org e cole o “Link direto” (termina em .png ou .jpg).">
         <input className="entrada" value={d.logoUrl} onChange={(e) => { setD({ ...d, logoUrl: e.target.value.trim() }); setLogoQuebrada(false); }} placeholder="https://i.postimg.cc/.../logo.png" />
       </Campo>
       {d.logoUrl && /^https:\/\//.test(d.logoUrl) && (

@@ -44,6 +44,24 @@ h3 { font-size: 1rem; }
 .pequeno { font-size: 0.875rem; }
 .centro { text-align: center; }
 
+/* ===== Tema salão de beleza (mesma lógica, outro visual) ===== */
+:root[data-tema='salao'] {
+  --papel: #fbf6f3;
+  --tinta: #4a2530;
+  --tinta-2: #7d5560;
+  --cromo: #c9a9a6;
+  --linha: #eedfda;
+  --polo: #b5657a;
+  --polo-escuro: #8f4a5d;
+  --raio: 14px;
+  --raio-g: 22px;
+}
+:root[data-tema='salao'] .letreiro { font-family: 'Fraunces', Georgia, serif; font-stretch: normal; font-weight: 600; letter-spacing: 0; }
+:root[data-tema='salao'] .polo { height: 6px; background: repeating-linear-gradient(90deg, #d9a5a0 0 16px, #f3e3df 16px 20px); }
+:root[data-tema='salao'] .cabecalho-loja { background: #f6e8e4; border-bottom-color: #eedfda; }
+:root[data-tema='salao'] .logo-loja { background: var(--marca); color: var(--marca-texto); border-radius: 50%; }
+:root[data-tema='salao'] .btn { border-radius: 999px; }
+
 /* Faixa de poste de barbeiro */
 .polo {
   height: 8px;
@@ -199,7 +217,7 @@ details summary { cursor: pointer; }
 
 .abas {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--superficie); border-top: 1px solid var(--linha);
-  display: grid; grid-template-columns: repeat(4, 1fr); padding-bottom: env(safe-area-inset-bottom);
+  display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom);
 }
 .abas a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 10px; font-size: 0.78rem; font-weight: 600; text-decoration: none; color: var(--cromo); }
 .abas a svg { width: 24px; height: 24px; }
@@ -247,3 +265,25 @@ details summary { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ===== Números do negócio ===== */
+.metricas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.metrica { background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 14px; }
+.metrica span { display: block; font-size: 0.82rem; color: var(--tinta-2); }
+.metrica b { display: block; font-size: 1.35rem; line-height: 1.2; margin-top: 2px; }
+.metrica small { color: var(--tinta-2); font-size: 0.78rem; }
+.colunas { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: end; gap: 6px; height: 150px; padding-top: 18px; }
+.coluna { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; min-width: 0; }
+.coluna .valor { font-size: 0.72rem; font-weight: 700; color: var(--tinta); white-space: nowrap; }
+.coluna .pilar { width: 100%; max-width: 34px; border-radius: 6px 6px 2px 2px; background: var(--linha); min-height: 3px; }
+.coluna.destaque .pilar { background: var(--polo); }
+.coluna .rotulo { font-size: 0.72rem; color: var(--tinta-2); white-space: nowrap; }
+.linha-barra { display: grid; grid-template-columns: 44px minmax(0, 1fr) 28px; align-items: center; gap: 8px; font-size: 0.85rem; padding: 3px 0; }
+.linha-barra .trilho { height: 10px; border-radius: 999px; background: var(--papel); overflow: hidden; }
+.linha-barra .enchimento { height: 100%; border-radius: 999px; background: var(--polo); }
+.servico-renda { padding: 10px 0; border-top: 1px solid var(--linha); }
+.servico-renda:first-of-type { border-top: none; }
+.servico-renda .trilho { height: 6px; border-radius: 999px; background: var(--papel); margin-top: 6px; overflow: hidden; }
+.servico-renda .enchimento { height: 100%; background: var(--polo); border-radius: 999px; }
+.dicas { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.chip-faltou { background: var(--erro); color: var(--erro-texto); }
